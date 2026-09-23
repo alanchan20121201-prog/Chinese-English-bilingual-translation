@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bilingual Translator | 中英翻譯器</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: #f3f4f6; /* Tailwind gray-100 */
+        }
+        .textarea-custom {
+            resize: none;
+            transition: border-color 0.3s ease;
+        }
+        .textarea-custom:focus {
+            outline: none;
+            border-color: #3b82f6; /* Tailwind blue-500 */
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.3);
+        }
+        .btn-hover {
+            transition: all 0.2s ease;
+        }
+        .btn-hover:hover {
+            transform: translateY(-1px);
+        }
+        .loader {
+            border-top-color: #3b82f6;
+            -webkit-animation: spinner 1.5s linear infinite;
+            animation: spinner 1.5s linear infinite;
+        }
+        @keyframes spinner {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col text-gray-800">
+
+    <nav class="bg-white shadow-md py-4 px-6 sm:px-12 flex justify-between items-center">
+        <div class="flex items-center gap-2">
+            <i class="fas fa-language text-blue-600 text-3xl"></i>
+            <h1 class="text-xl font-bold text-gray-900" id="app-title">Translator</h1>
+        </div>
+        <div>
+            <button id="toggle-ui-lang" class="bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold py-2 px-4 border border-gray-300 rounded-full shadow-sm btn-hover flex items-center gap-2">
+                <i class="fas fa-globe"></i>
+                <span id="ui-lang-text">中文介面</span>
+            </button>
+        </div>
+    </nav>
+
+    <main class="flex-grow container mx-auto px-4 py-8 max-w-5xl">
+        
+        <div class="bg-white rounded-2xl shadow-lg p-6 mb-8">
+            <div class="flex flex-col sm:flex-row justify-between items-center mb-6 gap-4 border-b pb-4">
+                <div class="flex items-center space-x-4 w-full sm:w-auto justify-center sm:justify-start">
+                    <span id="source-lang-label" class="font-semibold text-lg text-blue-600 w-24 text-center sm:text-left">English</span>
+                    <button id="swap-langs" class="text-gray-500 hover:text-blue-600 focus:outline-none p-2 rounded-full hover:bg-gray-100 transition-colors" title="Swap languages">
+                        <i class="fas fa-exchange-alt"></i>
+                    </button>
+                    <span id="target-lang-label" class="font-semibold text-lg text-gray-600 w-24 text-center sm:text-left">Chinese</span>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div class="relative flex flex-col">
+                    <label for="source-text" class="sr-only">Source Text</label>
+                    <textarea id="source-text" rows="8" class="textarea-custom w-full p-4 bg-gray-50 border border-gray-200 rounded-xl text-lg placeholder-gray-400 focus:bg-white" placeholder="Enter text to translate..."></textarea>
+                    
+                    <div class="absolute bottom-3 right-3 flex space-x-2">
+                        <button id="clear-btn" class="text-gray-400 hover:text-red-500 p-2 rounded-full hover:bg-gray-200 transition" title="Clear text">
+                            <i class="fas fa-trash-alt"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="relative flex flex-col">
+                    <div id="loading-overlay" class="hidden absolute inset-0 bg-white bg-opacity-70 flex justify-center items-center rounded-xl z-10">
+                         <div class="loader ease-linear rounded-full border-4 border-t-4 border-gray-200 h-10 w-10"></div>
+                    </div>
+                    <label for="target-text" class="sr-only">Translated Text</label>
+                    <textarea id="target-text" rows="8" class="textarea-custom w-full p-4 bg-blue-50 border border-blue-100 rounded-xl text-lg text-gray-800" readonly placeholder="Translation will appear here..."></textarea>
+                    
+                    <div class="absolute bottom-3 right-3 flex space-x-2">
+                        <button id="copy-btn" class="text-gray-500 hover:text-blue-600 p-2 rounded-full hover:bg-blue-100 transition" title="Copy to clipboard">
+                            <i class="far fa-copy"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="mt-6 flex justify-center md:justify-start">
+                 <button id="translate-btn" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-8 rounded-full shadow-md btn-hover w-full md:w-auto flex items-center justify-center gap-2">
+                    <i class="fas fa-language"></i>
+                    <span id="translate-btn-text">Translate</span>
+                </button>
+            </div>
+            
+            <div id="toast" class="hidden mt-4 p-3 bg-green-100 text-green-700 rounded-lg text-center font-medium transition-opacity duration-300">
+                Copied to clipboard!
+            </div>
+        </div>
+
+    </main>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const sourceText = document.getElementById('source-text');
+            const targetText = document.getElementById('target-text');
+            const translateBtn = document.getElementById('translate-btn');
+            const swapBtn = document.getElementById('swap-langs');
+            const clearBtn = document.getElementById('clear-btn');
+            const copyBtn = document.getElementById('copy-btn');
+            const sourceLangLabel = document.getElementById('source-lang-label');
+            const targetLangLabel = document.getElementById('target-lang-label');
+            const toggleUiLangBtn = document.getElementById('toggle-ui-lang');
+            const loadingOverlay = document.getElementById('loading-overlay');
+            const toast = document.getElementById('toast');
+
+            let isEnglishToChinese = true;
+            let currentUiLang = 'en'; // 'en' or 'zh'
+
+            const uiTranslations = {
+                en: {
+                    appTitle: "Translator",
+                    uiLangBtn: "中文介面",
+                    sourceEn: "English",
+                    sourceZh: "Chinese",
+                    targetEn: "English",
+                    targetZh: "Chinese",
+                    placeholderSourceEn: "Enter text to translate...",
+                    placeholderSourceZh: "請輸入要翻譯的文本...",
+                    placeholderTargetEn: "Translation will appear here...",
+                    placeholderTargetZh: "翻譯結果將顯示在此處...",
+                    btnTranslate: "Translate",
+                    toastCopy: "Copied to clipboard!"
+                },
+                zh: {
+                    appTitle: "中英翻譯器",
+                    uiLangBtn: "English UI",
+                    sourceEn: "英文",
+                    sourceZh: "中文",
+                    targetEn: "英文",
+                    targetZh: "中文",
+                    placeholderSourceEn: "Enter text to translate...",
+                    placeholderSourceZh: "請輸入要翻譯的文本...",
+                    placeholderTargetEn: "Translation will appear here...",
+                    placeholderTargetZh: "翻譯結果將顯示在此處...",
+                    btnTranslate: "翻譯",
+                    toastCopy: "已複製到剪貼簿！"
+                }
+            };
+
+            function updateUiLanguage() {
+                const t = uiTranslations[currentUiLang];
+                
+                document.getElementById('app-title').textContent = t.appTitle;
+                document.getElementById('ui-lang-text').textContent = t.uiLangBtn;
+                document.getElementById('translate-btn-text').textContent = t.btnTranslate;
+
+                updateLanguageLabels();
+                updatePlaceholders();
+            }
+
+            function updateLanguageLabels() {
+                const t = uiTranslations[currentUiLang];
+                if (isEnglishToChinese) {
+                    sourceLangLabel.textContent = t.sourceEn;
+                    targetLangLabel.textContent = t.targetZh;
+                    sourceLangLabel.classList.add('text-blue-600');
+                    sourceLangLabel.classList.remove('text-gray-600');
+                    targetLangLabel.classList.add('text-gray-600');
+                    targetLangLabel.classList.remove('text-blue-600');
+                } else {
+                    sourceLangLabel.textContent = t.sourceZh;
+                    targetLangLabel.textContent = t.targetEn;
+                    sourceLangLabel.classList.remove('text-blue-600');
+                    sourceLangLabel.classList.add('text-gray-600');
+                    targetLangLabel.classList.remove('text-gray-600');
+                    targetLangLabel.classList.add('text-blue-600');
+                }
+            }
+
+            function updatePlaceholders() {
+                const t = uiTranslations[currentUiLang];
+                if (isEnglishToChinese) {
+                     sourceText.placeholder = t.placeholderSourceEn;
+                     targetText.placeholder = t.placeholderTargetZh;
+                } else {
+                     sourceText.placeholder = t.placeholderSourceZh;
+                     targetText.placeholder = t.placeholderTargetEn;
+                }
+            }
+
+            function showToast(message) {
+                toast.textContent = message;
+                toast.classList.remove('hidden');
+                toast.classList.add('opacity-100');
+                
+                setTimeout(() => {
+                    toast.classList.remove('opacity-100');
+                    toast.classList.add('opacity-0');
+                    setTimeout(() => {
+                        toast.classList.add('hidden');
+                        toast.classList.remove('opacity-0');
+                    }, 300); // Wait for transition to finish
+                }, 2000);
+            }
+
+            async function translate() {
+                const text = sourceText.value.trim();
+                if (!text) {
+                    targetText.value = '';
+                    return;
+                }
+
+                // Determine language pair for API
+                // MyMemory uses ISO 639-1 codes. 'en' and 'zh-CN' or 'zh-TW'
+                const langPair = isEnglishToChinese ? 'en|zh-TW' : 'zh-TW|en';
+                
+                // Show loading
+                loadingOverlay.classList.remove('hidden');
+                
+                try {
+                    // Using MyMemory Translation API (Free tier has limits, but works without keys for basic use)
+                    const url = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=${langPair}`;
+                    
+                    const response = await fetch(url);
+                    const data = await response.json();
+                    
+                    if (data.responseData && data.responseData.translatedText) {
+                        targetText.value = data.responseData.translatedText;
+                    } else {
+                        throw new Error('Translation failed');
+                    }
+                } catch (error) {
+                    console.error('Translation Error:', error);
+                    targetText.value = currentUiLang === 'en' ? "Error: Could not translate at this time." : "錯誤：目前無法翻譯。";
+                } finally {
+                    // Hide loading
+                    loadingOverlay.classList.add('hidden');
+                }
+            }
+
+            
+            // Toggle UI Language
+            toggleUiLangBtn.addEventListener('click', () => {
+                currentUiLang = currentUiLang === 'en' ? 'zh' : 'en';
+                updateUiLanguage();
+            });
+
+            // Swap Translation Direction
+            swapBtn.addEventListener('click', () => {
+                isEnglishToChinese = !isEnglishToChinese;
+                
+                // Swap text content
+                const tempText = sourceText.value;
+                sourceText.value = targetText.value;
+                targetText.value = tempText;
+
+                updateLanguageLabels();
+                updatePlaceholders();
+            });
+
+            // Translate Button Click
+            translateBtn.addEventListener('click', translate);
+
+            // Translate on pressing Ctrl+Enter
+            sourceText.addEventListener('keydown', (e) => {
+                if (e.ctrlKey && e.key === 'Enter') {
+                    translate();
+                }
+            });
+
+            // Clear Button
+            clearBtn.addEventListener('click', () => {
+                sourceText.value = '';
+                targetText.value = '';
+                sourceText.focus();
+            });
+
+            // Copy Button
+            copyBtn.addEventListener('click', () => {
+                if (!targetText.value) return;
+                
+                // Use execCommand for broader compatibility in iframes
+                targetText.select();
+                try {
+                    document.execCommand('copy');
+                    showToast(uiTranslations[currentUiLang].toastCopy);
+                } catch (err) {
+                    console.error('Fallback: Oops, unable to copy', err);
+                }
+                
+                // Deselect text
+                window.getSelection().removeAllRanges();
+            });
+
+            updateUiLanguage(); // Set initial state
+        });
+    </script>
+</body>
+</html>
